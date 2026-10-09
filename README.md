@@ -261,3 +261,84 @@ When apply completes, you should see the ALB domain name as an output:
 ```text
 
 ```
+
+Open this domain name in your web browser, and you should see “Hello, World!” once again. Congrats, you now have a single endpoint, the load balancer domain name, that you can give your users, and when users hit it, the load-balancer will distribute their requests across all the apps in your ASG!
+
+## Roll Out Updates with Terraform and Auto Scaling Groups
+
+AWS ASGs support rolling deployments through a feature called instance refresh, Our ASG module configuration already have the proper paramater for rolling updates
+
+```hcl
+provider "aws" {
+  region = "us-east-2"
+}
+
+module "asg" {
+  source  = "../../modules/asg"
+
+  # ... (other params omitted) ...
+
+  instance_refresh = {
+    min_healthy_percentage = 100     #1
+    max_healthy_percentage = 200     #2
+    auto_rollback          = true    #3
+  }
+}
+```
+
+#### This code sets the following parameters:
+
+1. min_healthy_percentage : Setting this to 100% means that the cluster will never have fewer than the desired number of instances (initially, three), even during deployment. Whereas with server orchestration you updated instances in place, with VM orchestration you’ll deploy new instances, as per the next parameter.
+2. max_healthy_percentage : Setting this to 200% means that to deploy updates, the cluster will deploy totally new instances, up to twice the original size of the cluster, wait for the new instances to pass health checks, and then undeploy the old instances. So if you started with three instances, you’ll go up to six instances during deployment, with three new and three old, and when the new instances pass health checks, you’ll go back to three instances by undeploying the old ones.
+3. auto_rollback : If something goes wrong during deployment, and the new instances fail to pass health checks, this setting will automatically initiate a rollback, putting your cluster back to its previous working condition.
+
+### Update the app response text:
+
+You can try rolling out a change. For example, update app.js in the packer folder (packer/sample-app/app.js) to respond with "Fundamentals of DevOps!" as show below:
+
+```javascript
+res.end('Fundamentals of DevOps!\n');
+```
+
+### Build a new AMI:
+
+```bash
+$packer build sample-app.pkr.hcl
+```
+
+When the Packer build is complete, go back to the asg-sample module and run apply again. The module will automatically find the newly built AMI, the ASG will launch three new EC2 instances, and the ALB will start performing health checks on them. Once the new instances start to pass health checks, the ASG will undeploy the old instances, leaving you with just the three new instances running the new code. The whole process should take around five minutes.
+
+During this deployment, the load balancer URL should always return a successful response, as this is a zero-downtime deployment. You can even check this by opening a new terminal tab and running the following Bash
+
+```bash
+$while true; do curl http://<YourLoadBalancer-IP>; done
+```
+
+This code runs curl, an HTTP client, in a loop, hitting your ALB once per second and allowing you to see the zero-downtime deployment in action. For the first couple of minutes, you should see only "Hello, World!" responses from the old instances. Then, as new instances start to pass health checks, the ALB will begin sending traffic to them, and you should see the response from the ALB alternate between Hello, World! and "Fundamentals of DevOps!" After another couple of minutes, the "Hello, World!" message will disappear, and you’ll see only "Fundamentals of DevOps!", which means all the old instances have been shut down. The output will look something like this:
+
+```text
+Hello, World!
+Hello, World!
+Hello, World!
+Hello, World!
+Hello, World!
+Hello, World!
+Fundamentals of DevOps!
+Hello, World!
+Fundamentals of DevOps!
+Hello, World!
+Fundamentals of DevOps!
+Hello, World!
+Fundamentals of DevOps!
+Hello, World!
+Fundamentals of DevOps!
+Hello, World!
+Fundamentals of DevOps!
+Fundamentals of DevOps!
+Fundamentals of DevOps!
+Fundamentals of DevOps!
+Fundamentals of DevOps!
+Fundamentals of DevOps!
+Fundamentals of DevOps!
+Fundamentals of DevOps!
+```
