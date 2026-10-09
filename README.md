@@ -120,13 +120,13 @@ When the build is done, Packer will output the ID of the newly created AMI, whic
 
 ## Deploy a cluster in AWS Auto Scaling Group (ASG) to run the sample app
 
-We will use a module called "asg", you can find this module in the terraform/modules/asg folder. This is a simple module that creates three main resources:
+We will use a module called "asg"; you can find this module in the terraform/modules/asg folder. This is a simple module that creates three main resources:
 
 * A launch template, which is a bit like a blueprint that specifies the configuration to use for each EC2 instance.
 * An ASG that uses the configuration in the launch template to stamp out EC2 instances. The ASG will deploy these instances into the default VPC
 * A security group that controls what traffic can go in and out of the instances.
 
-### Configure the asg module (terraform/live/asg-sample/main.tf)
+### Configure the ASG module (terraform/live/asg-sample/main.tf)
 
 ```hcl
 provider "aws" {
@@ -157,7 +157,7 @@ module "asg" {
 
 1. name: The name to use for the launch template, ASG, etc.
 2. ami_name: The name of the AMI to run on each EC2 instance. The preceding code sets this to the name of the AMI you built from the Packer template in the previous section.
-3. user_data: The user data script to run on each instance during boot. (we will see that in a bit)
+3. user_data: The user data script to run on each instance during boot. (We will see that in a bit)
 4. app_http_port: The port to open in the security group to allow the app to receive HTTP requests.
 5. instance_type: The type of instances to run in the ASG.
 6. min_size: The minimum number of instances to run in the ASG.
@@ -177,13 +177,13 @@ pm2 save
 EOF
 ```
 
-This user data script switches to app-user , goes into the sample-app folder where Packer copied the sample app code, uses PM2 to run the sample app, and then saves the sample app to the list of apps that should be restarted after a reboot.
+This user data script switches to app-user, goes into the sample-app folder where Packer copied the sample app code, uses PM2 to run the sample app, and then saves the sample app to the list of apps that should be restarted after a reboot.
 
 ## Deploy the application load balancer (ELB)
 
 We will use a module called alb in the terraform/modules/alb folder to deploy an ALB. It’s a simple module that deploys the ALB into the default VPC and configures it to forward all requests to your servers
 
-### Configure the alb module (terraform/live/asg-sample/main.tf)
+### Configure the ALB module (terraform/live/asg-sample/main.tf)
 
 ```hcl
 provider "aws" {
@@ -210,7 +210,7 @@ module "alb" {
 
 1. name: The name to use for the ALB and all other resources.
 2. alb_http_port: The port the ALB will listen on for HTTP requests.
-3. app_http_port: The port the app will listen on for HTTP requests. The ALB will send traffic to this port. It will also perform health checks on this port, sending each server a request every 30 seconds, and considering the server healthy (and therefore, routing traffic to it) only if it returns a 200 OK.
+3. app_http_port: The port the app will listen on for HTTP requests. The ALB will send traffic to this port. It will also perform health checks on this port, sending each server a request every 30 seconds, and considering the server healthy (and therefore routing traffic to it) only if it returns a 200 OK.
 4. app_health_check_path: The path to use in the app for health checks.
 
 One piece is missing: how does the ALB know which EC2 instances to send traffic to? To connect the ALB and ASG, make the changes below
@@ -262,11 +262,11 @@ When apply completes, you should see the ALB domain name as an output:
 
 ```
 
-Open this domain name in your web browser, and you should see “Hello, World!” once again. Congrats, you now have a single endpoint, the load balancer domain name, that you can give your users, and when users hit it, the load-balancer will distribute their requests across all the apps in your ASG!
+Open this domain name in your web browser, and you should see “Hello, World!” once again. Congrats, you now have a single endpoint, the load balancer domain name, that you can give your users, and when users hit it, the load balancer will distribute their requests across all the apps in your ASG!
 
 ## Roll Out Updates with Terraform and Auto Scaling Groups
 
-AWS ASGs support rolling deployments through a feature called instance refresh, Our ASG module configuration already have the proper paramater for rolling updates
+AWS ASGs support rolling deployments through a feature called instance refresh. Our ASG module configuration already has the proper parameter for rolling updates
 
 ```hcl
 provider "aws" {
@@ -288,13 +288,13 @@ module "asg" {
 
 #### This code sets the following parameters:
 
-1. min_healthy_percentage : Setting this to 100% means that the cluster will never have fewer than the desired number of instances (initially, three), even during deployment. Whereas with server orchestration you updated instances in place, with VM orchestration you’ll deploy new instances, as per the next parameter.
-2. max_healthy_percentage : Setting this to 200% means that to deploy updates, the cluster will deploy totally new instances, up to twice the original size of the cluster, wait for the new instances to pass health checks, and then undeploy the old instances. So if you started with three instances, you’ll go up to six instances during deployment, with three new and three old, and when the new instances pass health checks, you’ll go back to three instances by undeploying the old ones.
-3. auto_rollback : If something goes wrong during deployment, and the new instances fail to pass health checks, this setting will automatically initiate a rollback, putting your cluster back to its previous working condition.
+1. min_healthy_percentage: Setting this to 100% means that the cluster will never have fewer than the desired number of instances (initially, three), even during deployment. Whereas with server orchestration you update instances in place, with VM orchestration you’ll deploy new instances, as per the next parameter.
+2. max_healthy_percentage: Setting this to 200% means that to deploy updates, the cluster will deploy totally new instances, up to twice the original size of the cluster, wait for the new instances to pass health checks, and then undeploy the old instances. So if you started with three instances, you’ll go up to six instances during deployment, with three new and three old, and when the new instances pass health checks, you’ll go back to three instances by undeploying the old ones.
+3. auto_rollback: If something goes wrong during deployment and the new instances fail to pass health checks, this setting will automatically initiate a rollback, putting your cluster back to its previous working condition.
 
 ### Update the app response text:
 
-You can try rolling out a change. For example, update app.js in the packer folder (packer/sample-app/app.js) to respond with "Fundamentals of DevOps!" as show below:
+You can try rolling out a change. For example, update app.js in the packer folder (packer/sample-app/app.js) to respond with "Fundamentals of DevOps!" as shown below:
 
 ```javascript
 res.end('Fundamentals of DevOps!\n');
