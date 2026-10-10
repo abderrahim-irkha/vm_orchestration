@@ -262,7 +262,7 @@ When apply completes, you should see the ALB domain name as an output:
 
 ```
 
-Open this domain name in your web browser, and you should see “Hello, World!” once again. Congrats, you now have a single endpoint, the load balancer domain name, that you can give your users, and when users hit it, the load balancer will distribute their requests across all the apps in your ASG!
+Open this domain name in your web browser, and you should see “Hello, World!”. Congrats, you now have a single endpoint, the load balancer domain name, that you can give your users, and when users hit it, the load balancer will distribute their requests across all the apps in your ASG!
 
 ## Roll Out Updates with Terraform and Auto Scaling Groups
 
@@ -314,7 +314,7 @@ During this deployment, the load balancer URL should always return a successful 
 $while true; do curl http://<YourLoadBalancer-IP>; done
 ```
 
-This code runs curl, an HTTP client, in a loop, hitting your ALB once per second and allowing you to see the zero-downtime deployment in action. For the first couple of minutes, you should see only "Hello, World!" responses from the old instances. Then, as new instances start to pass health checks, the ALB will begin sending traffic to them, and you should see the response from the ALB alternate between Hello, World! and "Fundamentals of DevOps!" After another couple of minutes, the "Hello, World!" message will disappear, and you’ll see only "Fundamentals of DevOps!", which means all the old instances have been shut down. The output will look something like this:
+This code runs curl, an HTTP client, in a loop, hitting your ALB once per second and allowing you to see the zero-downtime deployment in action. For the first couple of minutes, you should see only "Hello, World!" responses from the old instances. Then, as new instances start to pass health checks, the ALB will begin sending traffic to them, and you should see the response from the ALB alternate between "Hello, World!" and "Fundamentals of DevOps!" After another couple of minutes, the "Hello, World!" message will disappear, and you’ll see only "Fundamentals of DevOps!", which means all the old instances have been shut down. The output will look something like this:
 
 ```text
 Hello, World!
