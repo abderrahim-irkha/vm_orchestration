@@ -34,6 +34,10 @@ packer {                                             #1
   }
 }
 
+variable "ami_version" {
+  type    = string
+}
+
 data "amazon-ami" "amazon_linux" {                   #2
   most_recent = true
   owners      = ["amazon"] # Use the official Amazon AMI owner ID
@@ -45,7 +49,7 @@ data "amazon-ami" "amazon_linux" {                   #2
 }
 
 source "amazon-ebs" "amazon_linux" {                 #3
-  ami_name      = "sample-app-${uuidv4()}"
+  ami_name      = "sample-app-${var.ami_version}-${uuidv4()}"
   instance_type = "t3.micro"
   region        = "us-east-2"
   source_ami    = data.amazon-ami.amazon_linux.id
@@ -112,8 +116,10 @@ eval "$(sudo -u app-user pm2 startup -u app-user | tail -n1)"         #7
 ```bash
 $cd packer/
 $packer init sample-app.pkr.hcl
-$packer build sample-app.pkr.hcl
+$packer build  -var "ami_version=(YOUR VERSION NUMBER)" sample-app.pkr.hcl
 ```
+
+NB: We specify the AMI version as in production environment we don't want to roll out updates unintentionally. We just need to make sure we specify the "ami_name" input variable in the "asg" module to the exact AMI version we want to deploy
 
 When the build is done, Packer will output the ID of the newly created AMI, which you will deploy next.
 
@@ -137,7 +143,7 @@ module "asg" {
   source  = "../../modules/asg"
 
   name          = "sample-app-asg"                             #1
-  ami_name      = "sample-app-*"                               #2
+  ami_name      = "sample-app-(YOUR VERSION NUMBER)-*"         #2
   user_data     = filebase64("${path.module}/user-data.sh")    #3
   app_http_port = 8080                                         #4
 
@@ -156,7 +162,7 @@ module "asg" {
 #### This code sets the following parameters on the "asg" module:
 
 1. name: The name to use for the launch template, ASG, etc.
-2. ami_name: The name of the AMI to run on each EC2 instance. The preceding code sets this to the name of the AMI you built from the Packer template in the previous section.
+2. ami_name: The name of the AMI to run on each EC2 instance. The preceding code sets this to the name of the AMI you built from the Packer template in the previous section you just need to pass in the "ami_version" you want to deploy for the ASG.
 3. user_data: The user data script to run on each instance during boot. (We will see that in a bit)
 4. app_http_port: The port to open in the security group to allow the app to receive HTTP requests.
 5. instance_type: The type of instances to run in the ASG.
@@ -253,13 +259,20 @@ output "alb_dns_name" {
 
 ```bash
 $terraform init
-$terraform apply
+$terraform apply --auto-approve
 ```
+
+NB: The --auto-approve argument is used to approve the configuration automatically without interaction
+
 
 When apply completes, you should see the ALB domain name as an output:
 
 ```text
+Apply complete! Resources: 10 added, 0 changed, 0 destroyed.
 
+Outputs:
+
+alb_dns_name = "sample-app-alb-1016884704.us-east-2.elb.amazonaws.com"
 ```
 
 Open this domain name in your web browser, and you should see “Hello, World!”. Congrats, you now have a single endpoint, the load balancer domain name, that you can give your users, and when users hit it, the load balancer will distribute their requests across all the apps in your ASG!
@@ -303,10 +316,18 @@ res.end('Fundamentals of DevOps!\n');
 ### Build a new AMI:
 
 ```bash
-$packer build sample-app.pkr.hcl
+$packer build  -var "ami_version=(YOUR VERSION NUMBER)" sample-app.pkr.hcl
 ```
 
-When the Packer build is complete, go back to the asg-sample module and run apply again. The module will automatically find the newly built AMI, the ASG will launch three new EC2 instances, and the ALB will start performing health checks on them. Once the new instances start to pass health checks, the ASG will undeploy the old instances, leaving you with just the three new instances running the new code. The whole process should take around five minutes.
+NB: You will pass in the new version, as you updated the sample app
+
+When the Packer build is complete, go back to the asg-sample module and run apply again. The module will automatically find the newly built AMI. 
+
+```bash
+$terraform apply --auto-approve
+```
+
+The ASG will launch three new EC2 instances, and the ALB will start performing health checks on them. Once the new instances start to pass health checks, the ASG will undeploy the old instances, leaving you with just the three new instances running the new code. The whole process should take around five minutes.
 
 During this deployment, the load balancer URL should always return a successful response, as this is a zero-downtime deployment. You can even check this by opening a new terminal tab and running the following Bash
 

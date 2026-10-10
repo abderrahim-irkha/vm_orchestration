@@ -14,16 +14,16 @@ data "aws_ami" "amazon_linux" {
 
 ## This data source retrieves the default VPC in the AWS account. The default VPC is used to launch the EC2 instances in the ASG.
 
-data "aws_vpc" "default" {
+data "aws_vpc" "vpc" {
   default = true
 }
 
 ## This data source retrieves the default subnet in the default VPC. The default subnet is used to launch the EC2 instances in the ASG.
 
-data "aws_subnet" "default" {
+data "aws_subnets" "default" {
   filter {
     name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
+    values = [data.aws_vpc.vpc.id]
   }
 }
 
@@ -65,17 +65,17 @@ resource "aws_security_group_rule" "allow_ssh_inbound" {
 ## The following resource creates the auto scaling group (ASG) for the application. It uses the launch template and security group created above, and it can optionally register instances with target groups and enable instance refresh.
 
 resource "aws_autoscaling_group" "sample_app" {
-  name_prefix               = var.name
-  max_size                  = var.max_size
-  min_size                  = var.min_size
-  desired_capacity          = var.desired_capacity
-  vpc_zone_identifier       = [data.aws_subnet.default.id]
-  
+  name_prefix         = var.name
+  min_size            = var.min_size
+  max_size            = var.max_size
+  desired_capacity    = var.desired_capacity
+  vpc_zone_identifier = data.aws_subnets.default.ids
+
   launch_template {
     id      = aws_launch_template.sample_app.id
     version = aws_launch_template.sample_app.latest_version
   }
-  
+
   tag {
     key                 = "Name"
     value               = var.name
@@ -83,7 +83,7 @@ resource "aws_autoscaling_group" "sample_app" {
   }
 
   target_group_arns = var.target_group_arns
-  health_check_type = len(var.target_group_arns) > 0 ? "ELB" : "EC2"
+  health_check_type = length(var.target_group_arns) > 0 ? "ELB" : "EC2"
 
   dynamic "instance_refresh" {
     for_each = var.instance_refresh == null ? [] : [1]
@@ -91,9 +91,9 @@ resource "aws_autoscaling_group" "sample_app" {
       strategy = "Rolling"
 
       preferences {
-        min_healthy_percentage = instance_refresh.value.min_healthy_percentage
-        max_healthy_percentage = instance_refresh.value.max_healthy_percentage
-        auto_rollback          = instance_refresh.value.auto_rollback
+        min_healthy_percentage = var.instance_refresh.min_healthy_percentage
+        max_healthy_percentage = var.instance_refresh.max_healthy_percentage
+        auto_rollback          = var.instance_refresh.auto_rollback
       }
     }
   }

@@ -7,6 +7,10 @@ packer {
   }
 }
 
+variable "ami_version" {
+  type    = string
+}
+
 data "amazon-ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"] # Use the official Amazon AMI owner ID
@@ -18,7 +22,7 @@ data "amazon-ami" "amazon_linux" {
 }
 
 source "amazon-ebs" "amazon_linux" {
-  ami_name      = "sample-app-${uuidv4()}"
+  ami_name      = "sample-app-${var.ami_version}-${uuidv4()}"
   instance_type = "t3.micro"
   region        = "us-east-2"
   source_ami    = data.amazon-ami.amazon_linux.id

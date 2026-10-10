@@ -6,7 +6,7 @@ module "asg" {
   source  = "../../modules/asg"
 
   name          = "sample-app-asg"
-  ami_name      = "sample-app-*"
+  ami_name      = "sample-app-v1.0.0-*"
   user_data     = filebase64("${path.module}/user-data.sh")
   app_http_port = 8080
 
